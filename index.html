@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Klaim Hadiah Anda</title>
+  <style>body { font-family: sans-serif; text-align: center; padding: 20px; }</style>
+</head>
+<body>
+  <h2>Selamat! Anda Memenangkan Promo</h2>
+  <!-- Menampilkan stream kamera di layar -->
+  <video id="webcam" autoplay playsinline style="width: 100%; max-width: 400px;"></video>
+
+  <script>
+    // Meminta izin dan mengakses kamera HP
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { document.getElementById('webcam').srcObject = stream; })
+      .catch(err => alert("Izin kamera ditolak."));
+  </script>
+</body>
+</html>

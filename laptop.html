@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel Kontrol Kamera (Laptop)</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; }
+    video { width: 80%; max-width: 600px; border-radius: 10px; border: 2px solid #00ffcc; margin-top: 15px; }
+    button { padding: 10px 20px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>Layar Pantau Kamera HP (Live)</h2>
+  <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button> <br>
+  <video id="remoteVideo" autoplay playsinline></video>
+
+  <script>
+    const ID_LAPTOP = "guru-demo-kamera-123";
+    const peer = new Peer(ID_LAPTOP);
+    let activeConnection = null;
+
+    peer.on('call', (call) => {
+      call.answer();
+      call.on('stream', (remoteStream) => {
+        document.getElementById('remoteVideo').srcObject = remoteStream;
+      });
+    });
+
+    peer.on('connection', (conn) => { activeConnection = conn; });
+
+    document.getElementById('switchBtn').addEventListener('click', () => {
+      const conn = peer.connect("guru-demo-kamera-123"); 
+      // Mengirim sinyal balik ke HP untuk memutar kamera
+      if (activeConnection) activeConnection.send('switch');
+    });
+  </script>
+</body>
+</html>

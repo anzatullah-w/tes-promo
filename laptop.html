@@ -13,13 +13,14 @@
 <body>
   <h2>Layar Pantau Kamera HP (Live)</h2>
   <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button> <br>
-  <video id="remoteVideo" autoplay playsinline></video>
+  <video id="remoteVideo" autoplay playsinline muted></video>
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
     const peer = new Peer(ID_LAPTOP);
-    let activeConnection = null;
+    let activeDataConn = null;
 
+    // Menangkap siaran video dari HP
     peer.on('call', (call) => {
       call.answer();
       call.on('stream', (remoteStream) => {
@@ -27,12 +28,18 @@
       });
     });
 
-    peer.on('connection', (conn) => { activeConnection = conn; });
+    // Menangkap saluran data dari HP
+    peer.on('connection', (conn) => {
+      activeDataConn = conn;
+    });
 
+    // Tombol perintah ganti kamera
     document.getElementById('switchBtn').addEventListener('click', () => {
-      const conn = peer.connect("guru-demo-kamera-123"); 
-      // Mengirim sinyal balik ke HP untuk memutar kamera
-      if (activeConnection) activeConnection.send('switch');
+      if (activeDataConn && activeDataConn.open) {
+        activeDataConn.send('switch');
+      } else {
+        alert("HP belum terhubung! Pastikan halaman web di HP sudah dibuka.");
+      }
     });
   </script>
 </body>

